@@ -1,3 +1,5 @@
+#! /bin/bash
+
 # PROJET GWAS
 # Santy
 # Bessoul
@@ -6,27 +8,41 @@
 # l'analyse de stratification et générer des
 # des fichiers de données propres
 
+# Le script traite automatiqement tous les chromosomes
+# dans un dossier donnée (donné en premier paramètres)
+
+
 for f in $1/*.map
 do
 
   # Récupérer le nom de base du fichier à traiter
   describer=`basename $f .map`
 
-  # Créer un dossier pour stocker les fichiers propres
+  # Créer un dossier pour stocker les résultats
   # pour  chaque chromosome
   mkdir $1/${describer}
 
-
+  echo 'Quality control'
+  echo '==============='
   # Executer la commande plink pour effectuer le quality control
   plink --noweb --file $1/${describer} --hwe 0.001 --geno 0.02 --maf 0.01 --recode --out $1/${describer}/${describer}_RC
 
-  cd $1/${describer}
-
+  echo Stratification Analysis
+  echo =======================
   # Faire le clustering et créer les matrices de distance
-  plink --noweb --file ${describer}_RC --cluster --distance-matrix --out ${describer}_clust
+  plink --noweb --file $1/${describer}/${describer}_RC --cluster --distance-matrix --out $1/${describer}/${describer}_clust
 
-  # Ajouter les identifiants de colonnes et de lignes
-  # dans la matrice de distance
-  Rscript ../../src/dist_mat.R ${describer}_clust.cluster2 ${describer}_clust.mdist
+  echo Removing outliers
+  echo =================
+  # Retrait des outliers et sauvegarde des individus à enlever
+  # dans toremove.txt
+
+  Rscript dist_mat.R $1/${describer}/${describer}_clust.cluster2 $1/${describer}/${describer}_clust.mdist
+
+  mv toremove.txt $1/${describer}
+
+  # Génerer des fichiers propres en enlever les outliers des data
+  plink --noweb --file $1/${describer}/${describer}_RC --remove $1/${describer}/toremove.txt --recode --out $1/${describer}/${describer}_RC2
+
 
 done
